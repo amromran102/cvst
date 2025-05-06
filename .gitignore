@@ -1,0 +1,4 @@
+reports/
+logs/
+docker-compose-local.yml
+.venv

@@ -1,0 +1,12 @@
+version: '3'
+services:
+  cvst:
+    image: aomran102/cvst:latest
+    ports:
+      - "5705:5705"
+    environment:
+      DOCKER_REGISTRY: ""
+      DOCKER_USERNAME: ""
+      DOCKER_PASSWORD: ""
+    volumes:
+      - "./reports:/app/reports"

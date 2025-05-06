@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVST</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        body {
+            background-color: #f9f9fc; /* Soft pastel background */
+            color: #444; /* Darker gray for better readability */
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        textarea {
+            width: calc(100% - 20px);
+            padding: 12px;
+            margin: 0 auto;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+            font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+            font-size: 15px;
+        }
+
+        button {
+            padding: 10px 20px; /* Increased padding */
+            background-color: #4CAF50; /* Vibrant green for primary action */
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: #45a049; /* Slightly darker green on hover */
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .view-link,
+        .download-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #FF9800; /* Orange for accent */
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 500;
+        }
+
+        .view-link:hover,
+        .download-link:hover {
+            background-color: #e68900; /* Darker orange on hover */
+        }
+
+        #scan-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px; /* Space between the loader and text */
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        #scan-status.scanning {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        #scan-status.success {
+            color: #333; /* Changed to black */
+            font-weight: normal; /* Removed bold */
+        }
+    </style>
+    <script>
+        function disableButton() {
+            document.getElementById("submit-button").disabled = true;
+            document.getElementById("images").readOnly = true;
+            document.getElementById("images").style.backgroundColor = "#f0f0f0";
+            document.getElementById("scan-status").innerHTML = '<span class="loader"></span>Scanning in progress... Do not refresh the browser!';
+            document.getElementById("scan-status").classList.add("scanning");
+
+            // Hide existing links when starting a new scan
+            hideDownloadLink();
+            hideViewLink();
+        }
+
+        function enableButton() {
+            document.getElementById("submit-button").disabled = false;
+            document.getElementById("images").readOnly = false;
+            document.getElementById("images").style.backgroundColor = "#ffffff";
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- /cvst/ for reverse proxy prefix -->
+        <h1>Container Vulnerability Scan Tool (CVST)</h1>
+        <form action="/cvst/" method="post" onsubmit="disableButton()">
+            <label for="images">Enter Docker Images (Space or Newline):</label>
+            <h1></h1>    
+            <textarea name="images" id="images" rows="10" wrap="soft" style="background-color: #ffffff;" required></textarea>
+            <button id="submit-button" type="submit" onclick="hideDownloadLink(); hideViewLink();">Scan Images</button>
+            <h1></h1>
+        </form>
+        {% if html_view_path %}
+            <a id="view-html-link" class="view-link" href="{{ url_for('view_scan_results', filename=html_view_path.split('/')[-1]) }}" target="_blank" onclick="updateStatusAfterClick()">View HTML</a>
+        {% endif %}    
+        {% if csv_download_path %}
+            <a id="download-csv-link" class="download-link" href="{{ url_for('download_scan_results', filename=csv_download_path.split('/')[-1]) }}" onclick="updateStatusAfterClick()">Download CSV</a>
+        {% endif %}
+        <p id="scan-status">
+            {% if html_view_path or csv_download_path %}
+                <span class="success">Scan Completed Successfully! 👏</span>
+            {% endif %}
+        </p>
+    </div>
+    <script>
+        function hideDownloadLink() {
+            var downloadLink = document.querySelector('.download-link');
+            if (downloadLink) {
+                downloadLink.style.display = 'none';
+            }
+        }
+
+        function hideViewLink() {
+            var viewLink = document.querySelector('.view-link');
+            if (viewLink) {
+                viewLink.style.display = 'none';
+            }
+        }
+
+        function updateStatusAfterClick() {
+            document.getElementById("scan-status").innerText = "Ready to Scan More Images? 🚀";
+            document.getElementById("scan-status").classList.remove("success");
+            document.getElementById("scan-status").classList.add("success"); /* Apply .success class for consistent styling */
+            setTimeout(function () {
+                document.getElementById("download-link").click();
+                window.location.href = "/";
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
