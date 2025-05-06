@@ -9,4 +9,4 @@ services:
       DOCKER_USERNAME: ""
       DOCKER_PASSWORD: ""
     volumes:
-      - "./reports:/app/reports"
+      - "./reports:/cvst/reports"

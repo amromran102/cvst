@@ -46,7 +46,7 @@
           DOCKER_USERNAME: ""
           DOCKER_PASSWORD: ""
         volumes:
-          - "./reports:/app/reports"
+          - "./reports:/cvst/reports"
     ```
 - Replace the `DOCKER_REGISTRY`, `DOCKER_USERNAME`, and `DOCKER_PASSWORD` environment variables with your Docker registry details.
 - Run `docker compose up -d` to start CVST with private image scanning support.
