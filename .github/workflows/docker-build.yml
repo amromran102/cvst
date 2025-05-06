@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: CVST Image Builder
 
 on:
   schedule:
@@ -43,5 +43,5 @@ jobs:
           build-args: |
             TRIVY_VERSION=${{ env.TRIVY_VERSION }}
           tags: |
-            aomran102/cvst:latest
             aomran102/cvst:${{ env.VERSION_TAG }}
+            aomran102/cvst:latest
