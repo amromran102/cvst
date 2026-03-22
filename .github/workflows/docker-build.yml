@@ -70,7 +70,8 @@ jobs:
       # 5️⃣ Show selected version
       - name: Show selected version
         if: env.skip_build != 'true'
-        run: echo "Using Trivy version: ${{ env.TRIVY_VERSION }}"
+        run: |
+          echo "Using Trivy version: $TRIVY_VERSION"
 
       # 6️⃣ Install Cosign
       - name: Install Cosign
