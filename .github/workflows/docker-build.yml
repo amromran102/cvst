@@ -5,23 +5,45 @@ on:
     - cron: '0 0 * * *'  # Run daily at midnight
   push:
     branches:
-      - main
-  workflow_dispatch:  # Allow manual trigger
+      - dev   # Test safely on dev branch first
+  workflow_dispatch:
+
+permissions:
+  contents: read  # minimal permission
 
 jobs:
   check-and-build:
     runs-on: ubuntu-latest
+
     steps:
+      # 1️⃣ Checkout repo
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Get latest Trivy version
+      # 2️⃣ Get latest Trivy version with cooldown
+      - name: Get latest Trivy version (with cooldown)
         id: trivy-version
         run: |
-          LATEST_VERSION=$(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r .tag_name)
-          echo "TRIVY_VERSION=${LATEST_VERSION}" >> $GITHUB_ENV
-          echo "VERSION_TAG=$(date +%Y%m%d)-${LATEST_VERSION}" >> $GITHUB_ENV
+          RELEASE_DATA=$(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest)
+          VERSION=$(echo "$RELEASE_DATA" | jq -r .tag_name)
+          PUBLISHED_AT=$(echo "$RELEASE_DATA" | jq -r .published_at)
 
+          NOW=$(date +%s)
+          RELEASE_TIME=$(date -d "$PUBLISHED_AT" +%s)
+          AGE_HOURS=$(( (NOW - RELEASE_TIME) / 3600 ))
+
+          echo "Found version: $VERSION (age: ${AGE_HOURS}h)"
+
+          if [ "$AGE_HOURS" -lt 12 ]; then
+            echo "Release too new (<12h). Skipping build for safety."
+            echo "skip_build=true" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          echo "TRIVY_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "VERSION_TAG=$(date +%Y%m%d)-${VERSION}" >> $GITHUB_ENV
+
+      # 3️⃣ Cache last Trivy version
       - name: Cache last Trivy version
         id: cache-trivy
         uses: actions/cache@v3
@@ -29,6 +51,7 @@ jobs:
           path: .trivy-version
           key: trivy-version-${{ env.TRIVY_VERSION }}
 
+      # 4️⃣ Check if version or code changed
       - name: Check if Trivy version or code changed
         id: check-changes
         run: |
@@ -44,23 +67,62 @@ jobs:
             echo "${{ env.TRIVY_VERSION }}" > .trivy-version
           fi
 
-      - name: Set up QEMU
+      # 5️⃣ Show selected version
+      - name: Show selected version
         if: env.skip_build != 'true'
+        run: echo "Using Trivy version: ${{ env.TRIVY_VERSION }}"
+
+      # 6️⃣ Install Cosign
+      - name: Install Cosign
+        if: env.skip_build != 'true' && env.TRIVY_VERSION != ''
+        run: |
+          curl -sL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o cosign
+          chmod +x cosign
+          sudo mv cosign /usr/local/bin/
+
+      # 7️⃣ Verify Trivy release with Cosign
+      - name: Verify Trivy release with Cosign
+        if: env.skip_build != 'true' && env.TRIVY_VERSION != ''
+        run: |
+          # Strip leading 'v' from version for the binary filename
+          VERSION_NO_V=${TRIVY_VERSION#v}
+
+          echo "Downloading Trivy v$TRIVY_VERSION (filename version: $VERSION_NO_V)..."
+
+          # Download binary and Sigstore bundle
+          curl -sL -o trivy.tar.gz \
+            https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${VERSION_NO_V}_Linux-64bit.tar.gz
+
+          curl -sL -o trivy.tar.gz.sigstore.json \
+            https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${VERSION_NO_V}_Linux-64bit.tar.gz.sigstore.json
+
+          # Verify the binary using the attestation
+          cosign verify-blob-attestation trivy.tar.gz \
+            --bundle trivy.tar.gz.sigstore.json \
+            --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/aquasecurity/trivy/.github/workflows/reusable-release.yaml@refs/tags/${TRIVY_VERSION}"
+
+      # 8️⃣ Set up QEMU
+      - name: Set up QEMU
+        if: env.skip_build != 'true' && env.TRIVY_VERSION != ''
         uses: docker/setup-qemu-action@v2
 
+      # 9️⃣ Set up Docker Buildx
       - name: Set up Docker Buildx
-        if: env.skip_build != 'true'
+        if: env.skip_build != 'true' && env.TRIVY_VERSION != ''
         uses: docker/setup-buildx-action@v2
 
+      # 🔟 Login to Docker Hub
       - name: Login to Docker Hub
-        if: env.skip_build != 'true'
+        if: env.skip_build != 'true' && env.TRIVY_VERSION != ''
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # 1️⃣1️⃣ Build and push Docker image
       - name: Build and push
-        if: env.skip_build != 'true'
+        if: env.skip_build != 'true' && env.TRIVY_VERSION != ''
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -69,5 +131,4 @@ jobs:
           build-args: |
             TRIVY_VERSION=${{ env.TRIVY_VERSION }}
           tags: |
-            aomran102/cvst:${{ env.VERSION_TAG }}
-            aomran102/cvst:latest
+            aomran102/cvst:dev-${{ env.VERSION_TAG }}
