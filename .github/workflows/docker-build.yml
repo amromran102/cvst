@@ -132,5 +132,5 @@ jobs:
           build-args: |
             TRIVY_VERSION=${{ env.TRIVY_VERSION }}
           tags: |
-            aomran102/cvst:dev-${{ env.VERSION_TAG }}
+            aomran102/cvst:${{ env.VERSION_TAG }}
             aomran102/cvst:latest
