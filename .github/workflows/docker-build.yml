@@ -97,8 +97,8 @@ jobs:
           curl -sL -o trivy.tar.gz.sigstore.json \
             https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${VERSION_NO_V}_Linux-64bit.tar.gz.sigstore.json
 
-          # Verify the binary using the attestation
-          cosign verify-blob-attestation trivy.tar.gz \
+          # Verify the binary using the sigstore bundle
+          cosign verify-blob trivy.tar.gz \
             --bundle trivy.tar.gz.sigstore.json \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
             --certificate-identity "https://github.com/aquasecurity/trivy/.github/workflows/reusable-release.yaml@refs/tags/${TRIVY_VERSION}"
