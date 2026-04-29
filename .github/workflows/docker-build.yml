@@ -2,7 +2,7 @@ name: CVST Image Builder
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Run daily at midnight
+    - cron: '0 0 * * 1,4'  # Run every Monday and Thursday at midnight
   push:
     branches:
       - main
